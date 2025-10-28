@@ -90,3 +90,9 @@ You will receive an individual API Key for class assignments. To prevent acciden
 
 ## Troubleshooting
 - The Jupyter extension should install automatically. If you still cannot select a Python kernel on Jupyter Notebook: Go to the left sidebar >> **Extensions** >> search for **Jupyter** >> reload window (or reinstall it).   
+
+Text File Upload Feature
+Added a Streamlit upload section that allows users to:
+- Upload one or more `.txt` files.
+- See confirmation and a short preview of each file’s contents.
+This prepares the app for chunking and retrieval in later steps.
