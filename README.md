@@ -1,3 +1,43 @@
+# Chat with Your Documents (RAG App)
+This Streamlit application lets users upload `.txt` and `.pdf` documents and chat with them using a Retrieval-Augmented Generation (RAG) system.  
+It uses:
+- **LangChain** for retrieval and response generation  
+- **ChromaDB** for vector-based document search  
+- **Streamlit** for the web chat interface  
+
+
+## Features
+- Upload multiple `.txt` and `.pdf` files at once  
+- Automatically splits large documents into smaller chunks for better processing  
+- Stores and retrieves document embeddings using Chroma  
+- Chat interface supports multi-turn conversation  
+- Option to use either OpenAI (with API key) or a free HuggingFace model  
+
+
+## How to Run
+1. Open your **GitHub Codespace**.  
+2. In the terminal, install all dependencies:
+     ```bash
+   pip install -r requirements.txt
+
+
+Run the app:
+
+bash
+Copy code
+streamlit run assignment1/chat_with_pdf.py
+Upload your .txt and .pdf files.
+
+Ask questions in the chat box and view responses grounded in your uploaded documents.
+
+Notes
+- Built using the provided Codespace template for INFO 5940.
+- Supports multiple file uploads.
+- Uses Chroma as the vector database for document retrieval.
+- No API keys are exposed in this repository.
+
+
+
 # INFO 5940 
 Welcome to the INFO 5940 repository. You will complete your work using [**GitHub Codespaces**](#about-github-codespaces) and save your progress in your own GitHub repository. This guide will walk you through setting up the development environment and running the test notebook.  
 
@@ -90,9 +130,3 @@ You will receive an individual API Key for class assignments. To prevent acciden
 
 ## Troubleshooting
 - The Jupyter extension should install automatically. If you still cannot select a Python kernel on Jupyter Notebook: Go to the left sidebar >> **Extensions** >> search for **Jupyter** >> reload window (or reinstall it).   
-
-Text File Upload Feature
-Added a Streamlit upload section that allows users to:
-- Upload one or more `.txt` files.
-- See confirmation and a short preview of each file’s contents.
-This prepares the app for chunking and retrieval in later steps.
