@@ -89,6 +89,7 @@ def internet_search(query: str) -> str:
     - Sends simple log events before/after the call so the UI can show activity.
     """
     log_tool_event({"type": "call", "tool": "internet_search", "args": {"query": redact_for_logs(query)}})
+    print("🔍 Tavily Search Triggered:", query)
 
     try:
         api_key = os.getenv("TAVILY_API_KEY")
@@ -210,7 +211,9 @@ You receive:
 Your mission:
 - Audit the draft for realism, feasibility, and alignment with constraints.
 - Fix issues and output a user-ready, validated itinerary.
-- You ARE allowed to use tools, especially `internet_search`, for live fact-checking.
+- **You MUST use the `internet_search` tool whenever any fact-checking could materially change the itinerary (e.g., museum hours, ticket prices, transit times).**
+- Always perform at least one live search per itinerary to confirm a key fact.
+
 
 Tool usage (internet_search):
 - Use `internet_search` when verification could materially change the plan, for example:
@@ -389,67 +392,73 @@ if user_input:
         # Per-request tool log (shown in the sidebar)
         tool_events: List[Dict[str, Any]] = []
 
-        def ui_tool_logger(event: Dict[str, Any]) -> None:
-            """Append an event and re-render the sidebar log."""
-            tool_events.append(event)
-            with tool_panel:
-                st.markdown("**Recent tool calls**")
-                for ev in tool_events[-60:]:  # last N entries
-                    t = ev.get("tool", "unknown")
-                    et = ev.get("type", "event")
-                    if et == "call":
-                        st.write(f"• **{t}** called with `{ev.get('args')}`")
-                    elif et == "result":
-                        st.write(f"• **{t}** result preview:\n\n> {ev.get('preview')}")
-                    elif et == "error":
-                        st.error(f"• **{t}** error: {ev.get('error')}")
-                    elif et == "end":
-                        st.write(f"• **{t}** finished")
+    # ──────────────────────────────────────────────────────────────────────────
+    # TOOL LOGGER FUNCTION (must be OUTSIDE the chat_message block)
+    # ──────────────────────────────────────────────────────────────────────────
+    def ui_tool_logger(event: Dict[str, Any]) -> None:
+        """Append an event and re-render the sidebar log (stable refresh)."""
+        tool_events.append(event)
+        with tool_panel:
+            st.markdown("**Recent tool calls**")
+            for ev in tool_events[-60:]:
+                t = ev.get("tool", "unknown")
+                et = ev.get("type", "event")
+                if et == "call":
+                    st.write(f"• **{t}** called with `{ev.get('args')}`")
+                elif et == "result":
+                    st.write(f"• **{t}** result preview:\n\n> {ev.get('preview')}")
+                elif et == "error":
+                    st.error(f"• **{t}** error: {ev.get('error')}")
+                elif et == "end":
+                    st.write(f"• **{t}** finished")
+        # Force the sidebar to redraw without restarting the app
+        st.experimental_update()
 
-        # Install the logger so tools can report to the sidebar
-        set_tool_logger(ui_tool_logger)
+    # Install the logger so tools can report to the sidebar
+    set_tool_logger(ui_tool_logger)
 
-        try:
-            # Optional: clear sidebar panel on each run
-            with tool_panel:
-                st.empty()
+    try:
+        # Optional: clear sidebar panel on each run
+        with tool_panel:
+            st.empty()
 
-            # Step 1: Planner
-            with st.status("🧭 Planner Agent: generating itinerary…", expanded=True) as status:
-                live_msg.markdown("🧭 Planner Agent is creating your itinerary…")
-                plan_text = run_planner(user_input)
-                progress.progress(40)
-                status.update(label="🔎 Reviewer Agent: validating with live searches…", state="running")
+        # Step 1: Planner
+        with st.status("🧭 Planner Agent: generating itinerary…", expanded=True) as status:
+            live_msg.markdown("🧭 Planner Agent is creating your itinerary…")
+            plan_text = run_planner(user_input)
+            progress.progress(40)
+            status.update(label="🔎 Reviewer Agent: validating with live searches…", state="running")
 
-            # Step 2: Reviewer (tool calls will appear live in sidebar)
-            live_msg.markdown("🔎 Reviewer Agent is validating the plan with live searches…")
-            review_text = run_reviewer(plan_text)
-            progress.progress(90)
+        # Step 2: Reviewer (tool calls will appear live in sidebar)
+        live_msg.markdown("🔎 Reviewer Agent is validating the plan with live searches…")
+        review_text = run_reviewer(plan_text)
+        progress.progress(90)
 
-            # Completed
-            live_msg.markdown("✅ Validation complete. Rendering results…")
-            time.sleep(0.2)
-            progress.progress(100)
+        # Completed
+        live_msg.markdown("✅ Validation complete. Rendering results…")
+        time.sleep(0.2)
+        progress.progress(100)
 
-            # Final render: show only the validated result, with the raw plan expandable
-            st.info("🤖 **Reviewer Agent** (validated)")
-            st.markdown(review_text)
-            with st.expander("See raw plan from Planner Agent"):
-                st.markdown(plan_text)
+        # Final render: show only the validated result, with the raw plan expandable
+        st.info("🤖 **Reviewer Agent** (validated)")
+        st.markdown(review_text)
+        with st.expander("See raw plan from Planner Agent"):
+            st.markdown(plan_text)
 
-            # Save only the validated result to history
-            st.session_state.messages.append({"role": "assistant", "content": review_text})
-            st.session_state.meta.append({"trace": "Planner Agent → Reviewer Agent"})
-            st.caption("Planner Agent → Reviewer Agent")
+        # Save only the validated result to history
+        st.session_state.messages.append({"role": "assistant", "content": review_text})
+        st.session_state.meta.append({"trace": "Planner Agent → Reviewer Agent"})
+        st.caption("Planner Agent → Reviewer Agent")
 
-        except Exception as e:
-            # Friendly error box
-            live_msg.markdown("❌ Something went wrong.")
-            err = f"⚠️ Error while processing your request:\n\n```\n{e}\n```"
-            st.markdown(err)
-            st.session_state.messages.append({"role": "assistant", "content": err})
-            st.session_state.meta.append({"trace": "Runtime error."})
+    except Exception as e:
+        # Friendly error box
+        live_msg.markdown("❌ Something went wrong.")
+        err = f"⚠️ Error while processing your request:\n\n```\n{e}\n```"
+        st.markdown(err)
+        st.session_state.messages.append({"role": "assistant", "content": err})
+        st.session_state.meta.append({"trace": "Runtime error."})
 
-        finally:
-            # Always remove the logger so it doesn't leak into the next request
-            set_tool_logger(None)
+    finally:
+        # Always remove the logger so it doesn't leak into the next request
+        set_tool_logger(None)
+
